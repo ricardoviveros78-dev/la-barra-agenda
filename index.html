@@ -106,7 +106,7 @@ function printDoc(title,html){const w=window.open('','_blank');if(!w){alert('El 
 </style></head><body><nav class="receipt-actions"><a href="https://ricardoviveros78-dev.github.io/la-barra-agenda/?v=volver-comprobante" target="_self">← Volver a La Barra</a><button type="button" class="print" onclick="saveReceiptPdf(this)">Guardar PDF</button><button type="button" onclick="printReceiptNow()">Imprimir</button></nav>${html}<script>function printReceiptNow(){try{window.print()}catch(e){alert('No se pudo abrir la impresión. Usá Guardar PDF.')}} 
 function loadPdfScript(src){return new Promise(function(resolve,reject){var s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=function(){reject(new Error('No se pudo cargar el generador de PDF. Revisá tu conexión.'))};document.head.appendChild(s)})}
 async function saveReceiptPdf(btn){
-var original=btn.textContent;btn.disabled=true;btn.textContent='Preparando PDF...';
+var original=btn.textContent;var ios=/iPad|iPhone|iPod/.test(navigator.userAgent);var pdfTab=ios?window.open('','_blank'):null;btn.disabled=true;btn.textContent='Preparando PDF...';
 try{
 if(!window.jspdf?.jsPDF)await loadPdfScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
 if(!window.jspdf?.jsPDF)throw new Error('No se pudo iniciar el generador PDF');
@@ -128,10 +128,9 @@ if(el.children.length){Array.from(el.children).forEach(walk)}
 content.forEach(walk);
 var filename='Comprobante_La_Barra_'+new Date().toISOString().slice(0,10)+'.pdf';
 var blob=doc.output('blob'),url=URL.createObjectURL(blob);
-var ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
-if(ios){var a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();btn.textContent='PDF listo - abrir en Archivos';setTimeout(function(){URL.revokeObjectURL(url)},120000)}
+if(ios){if(pdfTab&&!pdfTab.closed){pdfTab.location.href=url}else{window.location.href=url}btn.textContent='PDF listo';setTimeout(function(){URL.revokeObjectURL(url)},120000)}
 else{doc.save(filename);setTimeout(function(){URL.revokeObjectURL(url)},120000)}
-}catch(e){alert('No se pudo generar el PDF: '+e.message)}finally{btn.disabled=false;if(btn.textContent==='Preparando PDF...')btn.textContent=original;else setTimeout(function(){btn.textContent=original},6000)}
+}catch(e){if(pdfTab&&!pdfTab.closed)pdfTab.close();alert('No se pudo generar el PDF: '+e.message)}finally{btn.disabled=false;if(btn.textContent==='Preparando PDF...')btn.textContent=original;else setTimeout(function(){btn.textContent=original},6000)}
 }
 <\/script></body></html>`);w.document.close();}
 function reservationReceipt(rid){const r=reservations.find(x=>x.id===rid);if(!r)return;const e=events.find(x=>x.id===r.event_id),t=tables.find(x=>x.id===r.table_id),paid=paidFor(r.id);printDoc('Comprobante de reserva',`<div style="display:flex;align-items:center;justify-content:space-between;gap:24px;margin-bottom:22px"><img src="${RECEIPT_LOGO_ADRIAN}" alt="Adrián Management" style="width:14%;max-width:82px;max-height:44px;object-fit:contain;display:block"></div><p>COMPROBANTE INDIVIDUAL DE RESERVA</p><hr><h2>${esc(e?.title)}</h2><p>Artista: ${esc(e?.artist)}<br>Fecha: ${esc(e?.event_date)} · ${esc(e?.start_time||'Horario a definir')}</p><hr><p>Titular: <b>${esc(r.customer_name)}</b><br>Teléfono: ${esc(r.customer_phone||'—')}<br>Mesa: ${esc(t?.name||'—')}<br>Personas: ${r.people}<br>Precio por persona: ${money(r.unit_price)}</p><h2>Total: ${money(r.total)}</h2><p>Abono inicial / total abonado: ${money(paid)}<br>Saldo pendiente: ${money(Number(r.total)-paid)}</p><p>Estado: ${esc(r.status)}</p><p>LA BARRA · Comprobante informativo</p>`)}
