@@ -128,6 +128,18 @@ if(el.tagName==='SECTION'){Array.from(el.children).forEach(walk);return}
 if(el.children.length){Array.from(el.children).forEach(walk)}
 }
 content.forEach(walk);
+if(document.body.innerText.includes('COMPROBANTE GENERAL DE EVENTO')){
+nextPage(35);
+y+=13;
+var colWidth=78,left=margin,right=margin+103;
+doc.setDrawColor(70,70,70);doc.setLineWidth(0.3);
+doc.line(left,y,left+colWidth,y);doc.line(right,y,right+colWidth,y);
+y+=6;doc.setFont('helvetica','bold');doc.setFontSize(10);
+doc.text('Adrian Viveros',left+colWidth/2,y,{align:'center'});
+doc.text('Firma del artista',right+colWidth/2,y,{align:'center'});
+y+=5;doc.setFont('helvetica','normal');doc.setFontSize(8);
+doc.text('Responsable - La Barra',left+colWidth/2,y,{align:'center'});
+}
 var filename='Comprobante_La_Barra_'+new Date().toISOString().slice(0,10)+'.pdf';
 var blob=doc.output('blob'),url=URL.createObjectURL(blob);
 if(ios){if(pdfTab&&!pdfTab.closed){pdfTab.location.href=url}else{window.location.href=url}btn.textContent='PDF listo';setTimeout(function(){URL.revokeObjectURL(url)},120000)}
