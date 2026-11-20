@@ -39,7 +39,35 @@ const $=id=>document.getElementById(id);const money=n=>new Intl.NumberFormat('es
 let me=null,profile=null,events=[],tables=[],reservations=[],payments=[],sales=[],files=[];let currentEvent=null;
 function msg(id,t,cls=''){const e=$(id);e.textContent=t;e.className='status '+cls}
 function canManage(){return ['administrador','organizador'].includes(profile?.role)}
-async function signIn(ev){ev.preventDefault();$('loginBtn').disabled=true;msg('loginMsg','Ingresando...');try{const {data,error}=await db.auth.signInWithPassword({email:$('loginEmail').value.trim(),password:$('loginPassword').value});if(error)throw error;await showApp(data.user)}catch(e){msg('loginMsg',e.message||'No se pudo iniciar sesión.','error')}finally{$('loginBtn').disabled=false}}
+async function signIn(ev){
+ev.preventDefault();
+const btn=$('loginBtn'),email=$('loginEmail').value.trim(),password=$('loginPassword').value;
+btn.disabled=true;msg('loginMsg','Conectando con el servidor...');
+try{
+let response=null,lastError=null;
+for(let attempt=0;attempt<2;attempt++){
+try{
+response=await db.auth.signInWithPassword({email,password});
+if(response.error)throw response.error;
+lastError=null;break;
+}catch(err){
+lastError=err;
+const networkIssue=/load failed|failed to fetch|network|fetch failed|timeout/i.test(err?.message||'');
+if(!networkIssue||attempt===1)break;
+msg('loginMsg','Problema de conexión. Reintentando...');
+await new Promise(resolve=>setTimeout(resolve,1200));
+}}
+if(lastError)throw lastError;
+if(!response?.data?.user)throw new Error('No se recibió una respuesta válida del servidor.');
+await showApp(response.data.user);
+msg('loginMsg','');
+}catch(e){
+const detail=e?.message||'Error desconocido';
+const networkIssue=/load failed|failed to fetch|network|fetch failed|timeout/i.test(detail);
+msg('loginMsg',networkIssue?'No se pudo conectar con Supabase. Revisá tu conexión e intentá de nuevo. Si persiste, puede ser una interrupción del servicio.':detail,'error');
+console.error('Error al ingresar a La Barra:',e);
+}finally{btn.disabled=false}
+}
 async function forgotPassword(){const email=$('loginEmail').value.trim();if(!email){msg('loginMsg','Escribí tu correo para enviarte el enlace de recuperación.','error');return}const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.href});msg('loginMsg',error?error.message:'Te enviamos un correo para restablecer la contraseña.',error?'error':'success')}
 async function signOut(){await db.auth.signOut();location.reload()}
 async function boot(){const {data:{session}}=await db.auth.getSession();if(session)await showApp(session.user);db.auth.onAuthStateChange(async(_event,session)=>{if(session&&$('appView').classList.contains('hidden'))await showApp(session.user);else if(!session){$('appView').classList.add('hidden');$('loginView').classList.remove('hidden')}})}
