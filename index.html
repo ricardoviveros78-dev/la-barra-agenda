@@ -64,13 +64,23 @@ msg('loginMsg','');
 }catch(e){
 const detail=e?.message||'Error desconocido';
 const networkIssue=/load failed|failed to fetch|network|fetch failed|timeout/i.test(detail);
-msg('loginMsg',networkIssue?'No se pudo conectar con Supabase. Revisá tu conexión e intentá de nuevo. Si persiste, puede ser una interrupción del servicio.':detail,'error');
+msg('loginMsg',networkIssue?'Error de conexión con el servidor de La Barra (Supabase). Probá cambiar entre Wi-Fi y datos móviles. Si sigue igual, hay que revisar el estado del proyecto Supabase. Detalle: '+detail:detail,'error');
 console.error('Error al ingresar a La Barra:',e);
 }finally{btn.disabled=false}
 }
 async function forgotPassword(){const email=$('loginEmail').value.trim();if(!email){msg('loginMsg','Escribí tu correo para enviarte el enlace de recuperación.','error');return}const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.href});msg('loginMsg',error?error.message:'Te enviamos un correo para restablecer la contraseña.',error?'error':'success')}
 async function signOut(){await db.auth.signOut();location.reload()}
-async function boot(){const {data:{session}}=await db.auth.getSession();if(session)await showApp(session.user);db.auth.onAuthStateChange(async(_event,session)=>{if(session&&$('appView').classList.contains('hidden'))await showApp(session.user);else if(!session){$('appView').classList.add('hidden');$('loginView').classList.remove('hidden')}})}
+async function boot(){
+try{
+const {data,error}=await db.auth.getSession();
+if(error)throw error;
+if(data?.session?.user)await showApp(data.session.user);
+}catch(e){console.error('Error al recuperar sesión:',e);msg('loginMsg','No se pudo recuperar la sesión. Podés intentar ingresar nuevamente.','error')}
+db.auth.onAuthStateChange((_event,session)=>{
+if(!session){$('appView').classList.add('hidden');$('loginView').classList.remove('hidden');return}
+if($('appView').classList.contains('hidden'))setTimeout(()=>{if($('appView').classList.contains('hidden'))showApp(session.user).catch(e=>{console.error('Error al cargar perfil:',e);msg('loginMsg',e.message||'No se pudo cargar el perfil.','error')})},0);
+});
+}
 async function showApp(user){me=user;const {data:p,error}=await db.from('lb_profiles').select('*').eq('id',user.id).maybeSingle();if(error)throw error;if(!p||!p.active){await db.auth.signOut();throw new Error('Tu usuario no tiene un perfil activo en LA BARRA. Contactá al administrador.')}profile=p;$('loginView').classList.add('hidden');$('appView').classList.remove('hidden');$('userLine').textContent=`${p.email} · ${p.role}`;await refreshData()}
 async function refreshData(){try{const [a,b,c,d,e]=await Promise.all([db.from('lb_events').select('*').order('event_date'),db.from('lb_event_tables').select('*'),db.from('lb_reservations').select('*').order('created_at',{ascending:false}),db.from('lb_reservation_payments').select('*'),db.from('lb_ticket_sales').select('*')]);for(const x of [a,b,c,d,e])if(x.error)throw x.error;events=a.data||[];tables=b.data||[];reservations=c.data||[];payments=d.data||[];sales=e.data||[];const f=await db.from('lb_event_files').select('*').order('created_at',{ascending:false});if(f.error)throw f.error;files=f.data||[];render()}catch(e){alert('No se pudieron cargar los datos: '+(e.message||e))}}
 function tab(id,btn){['inicio','calendario','eventos','archivos'].forEach(k=>$(k).classList.add('hidden'));$(id).classList.remove('hidden');document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active');if(id==='calendario')renderCalendar()}
